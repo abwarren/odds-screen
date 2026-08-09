@@ -2,7 +2,7 @@
 
 > **Date:** 2026-08-09
 > **Status:** Plan only — no code yet (committed to GitHub before building, per workflow)
-> **Research:** OddsJam deep-dive findings will be folded into the UI section when the research agents report back.
+> **Research:** OddsJam deep-dive completed (3 parallel agents, Aug 2026) — see Research Context section below.
 
 ---
 
@@ -140,6 +140,55 @@ Layer 6 — History        → second scrape with a changed odds appends a row
 18. **Realtime update** — 5s poll of `/board`; diff previous state; green/red flash on change.
 19. **Visual polish** — dark wallboard theme, best-odds highlight within a book, settled/ended state styling.
 20. **End-to-end verification** — full tracer-bullet acceptance run; then commit.
+
+## Research Context — What an OddsJam-Style Odds Screen Looks Like
+
+Deep dive (3 parallel research agents, cited sources) into OddsJam — the reference
+for what an "odds screen" product entails. Key takeaways for this build:
+
+**The company.** OddsJam (Odds Holdings) founded by Ankit Goyal & Alex Monahan,
+launched April 2021; bootstrapped and profitable, acquired by Gambling.com Group
+(now Grandstand) for up to $160M (closed Jan 2025); ~$26M revenue / ~$12M EBITDA
+in 2024. CEO Matt Restivo (ex-Action Network). ~30-40 staff. Business = vertical
+integration: free odds pages (SEO + affiliate deep-links to books) → paid consumer
+tools (OddsJam Pro) → enterprise API (OpticOdds) + "OddsJam Screen" (B2B odds board).
+
+**The screen product.** OddsJam Screen (their B2B odds board, sold to syndicates/
+traders/books) is a realtime grid of markets across 100+ books with custom weighted
+consensus lines, notifications on line moves / market posting / injuries /
+settlements / time changes, and Slack + Teams integration. The consumer site is
+the same data reframed as +EV screener, arbitrage, middles, promo converter,
+parlay builder, bet tracker with CLV. Our v1 wallboard is the SA-market seed of
+this: one book, live totals — but the same grid + movement-flash + alert shape.
+
+**Data & math (the playbook).**
+- Ingestion is polling/scraping of books' public endpoints, per-book freshness
+  tracked via `last-polled` timestamps; they claim 1M+ odds/sec across "hundreds
+  of servers" and 100-150+ books. Our ~20s poll of one BetConstruct book is the
+  same pattern at v1 scale — per-book `last_polled` freshness belongs in Stage 2.
+- Normalization: decimal odds in API, American in US UI; we stay decimal (SA).
+- History: opening odds → live line changes → closing lines all stored; "beating
+  the closing line" (CLV) is their core metric. Our append-only `odds_history`
+  is exactly this shape — Stage 4 consumes it.
+- Fair odds: devigged consensus "Perfect Line" across books, user-selectable
+  devig methods (Multiplicative / Additive / Power (default) / Worst / Best case);
+  EV = (win prob × profit) − (loss prob × stake); Kelly staking. Stage 4 targets.
+
+**Market context.** Post-PASPA US handle exploded (→ $100B+/yr); data flows via
+(a) official league feeds (Sportradar/Genius), (b) books' own unofficial JSON
+endpoints, (c) scrapers aggregating those — OddsJam's model, (d) exchange APIs.
+Competitors: The Odds API / SportsDataIO (dev-friendly data APIs), Unabated /
+BetStamp / Pikkit (consumer edge tools). **The SA angle: no OddsJam equivalent
+exists for SA bookmakers — the odds-comparison/+EV gap is open, and BetConstruct
+books have no public API, so DOM scraping is the only route (same as OddsJam's
+origins; Sportradar itself started by scraping book odds).**
+
+**Risk note.** Swish Analytics sued OddsJam/OpticOdds for data misappropriation
+(~$100M claim, Dec 2024; motion to dismiss rejected). Scraping books carries
+ToS/IP exposure everywhere, SA included. Mitigation for this build: read-only,
+rate-limited, public-page scraping; no account automation; no bet placement; and
+never claim data provenance we don't have. (This is a display/analytics tool, not
+a resale business — keeps the risk profile low.)
 
 ## Open Questions
 
