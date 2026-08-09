@@ -25,6 +25,7 @@ _COLUMNS = (
     "id, selection_id, bookmaker_id, side, line_value, odds_at_request, stake, "
     "status, mode, idempotency_key, requested_at, delivered_at, confirmed_at, failed_reason"
 )
+_B_COLUMNS = ", ".join(f"b.{c}" for c in _COLUMNS.split(", "))
 
 
 async def place(pool: Pool, bet: BetIn) -> tuple[dict, bool]:
@@ -135,5 +136,13 @@ async def commands(pool: Pool, bookmaker: str) -> list[dict]:
 
 async def list_bets(pool: Pool, limit: int = 100) -> list[dict]:
     async with pool.acquire() as conn:
-        rows = await conn.fetch(f"SELECT {_COLUMNS} FROM bets ORDER BY id DESC LIMIT $1", limit)
+        rows = await conn.fetch(
+            f"""
+            SELECT {_B_COLUMNS}, bk.name AS bookmaker
+            FROM bets b
+            JOIN bookmakers bk ON bk.id = b.bookmaker_id
+            ORDER BY b.id DESC LIMIT $1
+            """,
+            limit,
+        )
         return [dict(r) for r in rows]

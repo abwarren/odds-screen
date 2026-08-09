@@ -58,6 +58,7 @@ async def board():
             """
             SELECT e.id            AS event_id,
                    e.external_ref,
+                   bk.name         AS bookmaker,
                    e.home_team, e.away_team,
                    e.home_score, e.away_score,
                    e.period_code, e.clock_seconds,
@@ -66,6 +67,7 @@ async def board():
                    s.side, s.line_value,
                    v.odds
             FROM events e
+            JOIN bookmakers bk ON bk.id = e.bookmaker_id
             JOIN markets m     ON m.event_id = e.id
             JOIN periods p     ON p.id = m.period_id
             JOIN selections s  ON s.market_id = m.id

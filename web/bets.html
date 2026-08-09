@@ -36,11 +36,11 @@
 <div class="grid">
   <section>
     <h2>Live board</h2>
-    <table id="board"><thead><tr><th>Game</th><th>Period</th><th>Market</th><th>Odds</th><th>Stake</th><th></th></tr></thead><tbody></tbody></table>
+    <table id="board"><thead><tr><th>Book</th><th>Game</th><th>Period</th><th>Market</th><th>Odds</th><th>Stake</th><th></th></tr></thead><tbody></tbody></table>
   </section>
   <section>
     <h2>Bets</h2>
-    <table id="bets"><thead><tr><th>#</th><th>Bet</th><th>Odds</th><th>Stake</th><th>Status</th><th></th></tr></thead><tbody></tbody></table>
+    <table id="bets"><thead><tr><th>#</th><th>Book</th><th>Bet</th><th>Odds</th><th>Stake</th><th>Status</th><th></th></tr></thead><tbody></tbody></table>
   </section>
 </div>
 <div id="toast"></div>
@@ -69,7 +69,7 @@ async function loadBoard() {
   for (const e of events) {
     const tr = document.createElement("tr");
     const game = e.home_team + " vs " + e.away_team;
-    tr.innerHTML = `<td>${game}</td><td>${PERIOD_NAMES[e.period] || e.period}</td>` +
+    tr.innerHTML = `<td>${e.bookmaker}</td><td>${game}</td><td>${PERIOD_NAMES[e.period] || e.period}</td>` +
       `<td>${e.side} ${e.line_value}</td><td>${e.odds}</td>` +
       `<td><input type="number" class="stake" min="1" step="1" placeholder="R"></td>` +
       `<td><button data-sid="${e.selection_id}" data-txt="${e.side} ${e.line_value} @ ${e.odds}">Place</button></td>`;
@@ -97,7 +97,7 @@ async function loadBets() {
   tbody.innerHTML = "";
   for (const b of bets) {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td>#${b.id}</td><td>${b.side} ${b.line_value}</td>` +
+    tr.innerHTML = `<td>#${b.id}</td><td>${b.bookmaker}</td><td>${b.side} ${b.line_value}</td>` +
       `<td>${b.odds_at_request}</td><td>R${b.stake}</td>` +
       `<td class="st-${b.status}">${b.status}${b.failed_reason ? " — " + b.failed_reason : ""}</td>` +
       `<td>${b.status === "requested" ? '<button class="ghost" data-cancel="' + b.id + '">Cancel</button>' : ""}</td>`;
