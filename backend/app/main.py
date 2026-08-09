@@ -52,10 +52,26 @@ async def health():
 
 @app.get("/board")
 async def board():
-    """Live events with current O/U selections (Phase D wallboard read model)."""
+    """Live events with current O/U selections (Phase D wallboard read model).
+
+    One game per row GROUP: events are deduped by match (v_matched_events) —
+    the canonical event per match is the most recently updated one, so test
+    re-ingests of the same game collapse into a single board entry.
+    """
     async with app.state.pool.acquire() as conn:
         rows = await conn.fetch(
             """
+            WITH canon AS (
+                SELECT vm.match_id,
+                       e.id,
+                       row_number() OVER (
+                           PARTITION BY vm.match_id
+                           ORDER BY e.last_seen_at DESC, e.id DESC
+                       ) AS rn
+                FROM v_matched_events vm
+                JOIN events e ON e.id = vm.event_id
+                WHERE e.status = 'live'
+            )
             SELECT e.id            AS event_id,
                    e.external_ref,
                    bk.name         AS bookmaker,
@@ -66,15 +82,16 @@ async def board():
                    s.id            AS selection_id,
                    s.side, s.line_value,
                    v.odds
-            FROM events e
+            FROM canon c
+            JOIN events e ON e.id = c.id
             JOIN bookmakers bk ON bk.id = e.bookmaker_id
             JOIN markets m     ON m.event_id = e.id
             JOIN periods p     ON p.id = m.period_id
             JOIN selections s  ON s.market_id = m.id
             JOIN v_current_odds v ON v.selection_id = s.id
-            WHERE e.status = 'live'
+            WHERE c.rn = 1
               AND s.is_open = true
-            ORDER BY e.id, p.ordinal, s.side
+            ORDER BY c.match_id, p.ordinal, s.side
             """
         )
     return {"events": [dict(r) for r in rows]}

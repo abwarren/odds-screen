@@ -217,7 +217,12 @@ async def test_full_lifecycle(client):
 async def test_second_event_is_independent(client):
     ref1, ref2 = unique_ref(), unique_ref()
     client.post(f"{API}/ingest", json=make_payload(ref1))
-    client.post(f"{API}/ingest", json=make_payload(ref2, over=2.10, under=1.60))
+    # second event is a DIFFERENT game — /board dedupes by match, so same-team
+    # re-ingests would collapse into one canonical event
+    client.post(f"{API}/ingest", json=make_payload(
+        ref2, over=2.10, under=1.60,
+        event={"home_team": "Cavs", "away_team": "Magic"},
+    ))
 
     rows1 = board_rows(client, ref1)
     rows2 = board_rows(client, ref2)

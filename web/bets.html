@@ -80,10 +80,11 @@ async function loadBoard() {
   for (const e of events) {
     const tr = document.createElement("tr");
     const game = e.home_team + " vs " + e.away_team;
+    const market = e.line_value != null ? `${e.side} ${e.line_value}` : e.side;
     tr.innerHTML = `<td>${e.bookmaker}</td><td>${game}</td><td>${PERIOD_NAMES[e.period] || e.period}</td>` +
-      `<td>${e.side} ${e.line_value}</td><td>${e.odds}</td>` +
+      `<td>${market}</td><td>${e.odds}</td>` +
       `<td><input type="number" class="stake" min="1" step="1" placeholder="R"></td>` +
-      `<td><button data-sid="${e.selection_id}" data-txt="${e.side} ${e.line_value} @ ${e.odds}">Place</button></td>`;
+      `<td><button data-sid="${e.selection_id}" data-txt="${market} @ ${e.odds}">Place</button></td>`;
     tr.querySelector("button").onclick = async (ev) => {
       const btn = ev.target, sid = btn.dataset.sid, stake = tr.querySelector(".stake").value;
       if (!stake || +stake <= 0) return toast("enter a stake");
@@ -115,7 +116,8 @@ async function loadBets() {
   tbody.innerHTML = "";
   for (const b of bets) {
     const tr = document.createElement("tr");
-    tr.innerHTML = `<td>#${b.id}</td><td>${b.bookmaker}</td><td>${b.side} ${b.line_value}</td>` +
+    const market = b.line_value != null ? `${b.side} ${b.line_value}` : b.side;
+    tr.innerHTML = `<td>#${b.id}</td><td>${b.bookmaker}</td><td>${market}</td>` +
       `<td>${b.odds_at_request}</td><td>R${b.stake}</td>` +
       `<td class="st-${b.status}">${b.status}${b.failed_reason ? " — " + b.failed_reason : ""}</td>` +
       `<td>${b.status === "requested" ? '<button class="ghost" data-cancel="' + b.id + '">Cancel</button>' : ""}</td>`;

@@ -29,12 +29,24 @@ async def compare(pool: Pool, period: str = "ft", market_type: str = "total_poin
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT vm.match_id,
+            WITH canon AS (
+                -- one canonical event per (match, book): the most recently
+                -- seen, so repeated ingests of the same game don't stack
+                SELECT vm.match_id, e.bookmaker_id, e.id,
+                       row_number() OVER (
+                           PARTITION BY vm.match_id, e.bookmaker_id
+                           ORDER BY e.last_seen_at DESC, e.id DESC
+                       ) AS rn
+                FROM v_matched_events vm
+                JOIN events e ON e.id = vm.event_id
+                WHERE e.status = 'live'
+            )
+            SELECT c.match_id,
                    ev.home_team, ev.away_team, ev.status,
                    bk.code AS book, bk.name AS book_name,
                    s.side, s.line_value, v.odds
-            FROM v_matched_events vm
-            JOIN events ev       ON ev.id = vm.event_id
+            FROM canon c
+            JOIN events ev       ON ev.id = c.id
             JOIN markets mk      ON mk.event_id = ev.id
             JOIN periods p       ON p.id = mk.period_id
             JOIN market_types mt ON mt.id = mk.market_type_id
@@ -42,7 +54,7 @@ async def compare(pool: Pool, period: str = "ft", market_type: str = "total_poin
             JOIN v_current_odds v ON v.selection_id = s.id
             JOIN bookmakers bk   ON bk.id = ev.bookmaker_id
             WHERE p.code = $1 AND mt.code = $2 AND ev.status = 'live'
-            ORDER BY vm.match_id, bk.code, s.side
+            ORDER BY c.match_id, bk.code, s.side
             """,
             period, market_type,
         )
