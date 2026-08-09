@@ -10,7 +10,7 @@ import asyncpg
 from fastapi import Depends, FastAPI, Header, HTTPException, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from . import bets, config, ingest, schemas
+from . import bets, compare, config, ingest, schemas
 
 
 @asynccontextmanager
@@ -78,6 +78,18 @@ async def board():
             """
         )
     return {"events": [dict(r) for r in rows]}
+
+
+@app.get("/books")
+async def books():
+    """Registered bookmakers (read side — powers the compare matrix header)."""
+    return {"books": await compare.books(app.state.pool)}
+
+
+@app.get("/compare")
+async def compare_board(period: str = "ft", market_type: str = "total_points"):
+    """Same market across books: per matched game, per book line + odds, best per side."""
+    return {"matches": await compare.compare(app.state.pool, period, market_type)}
 
 
 # --------------------------------------------------------------------------- #

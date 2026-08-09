@@ -5,17 +5,17 @@ Points Over/Under wallboard (Q1–Q4 + Full Game), with append-only odds history
 for later line-movement / CLV / +EV analysis, and remote bet placement from
 the screen into your own logged-in PokerBet session.
 
-**Status:** TB-001 (ingest) + TB-003 (remote bet placement) complete and
-QA-approved. Next: TB-002 BetConstruct scraper (Phase C).
+**Status:** TB-001 (ingest) + TB-003 (remote bet placement) + TB-004 (multi-book
+comparison) complete and QA-approved. Next: TB-002 BetConstruct scraper (Phase C).
 
 - Plan: `docs/plans/2026-08-09-odds-screen-v1.md`
 - Schema: `db/schema.sql`
-- Tracer bullet evidence: `docs/tracer_bullets/TB-001/`, `docs/tracer_bullets/TB-003/`
+- Tracer bullet evidence: `docs/tracer_bullets/TB-001/`, `docs/tracer_bullets/TB-003/`, `docs/tracer_bullets/TB-004/`
 - Handoff: `SESSION_HANDOFF.md`
 
 Stack (house pattern): FastAPI + asyncpg + PostgreSQL (Docker Compose, mapped
-ports) + vanilla JS/SVG wallboard. Data source v1: BetConstruct-based bookmaker
-(PokerBet.co.za) via DOM scraping.
+ports) + vanilla JS wallboard. Data source v1: BetConstruct-based bookmaker
+(PokerBet.co.za) via DOM scraping. 15 SA books registered (Chrome 'Books' folder).
 
 ## Run it
 
@@ -32,7 +32,9 @@ curl localhost:8002/health            # {"status":"ok"}
 | Endpoint | Purpose |
 |---|---|
 | `GET /health` | liveness (SELECT 1) |
-| `GET /board` | live events × open O/U selections (one query; includes selection_id) |
+| `GET /board` | live events × open O/U selections (one query; includes selection_id, bookmaker) |
+| `GET /compare?period=ft` | same market across books: per matched game, per book line + odds, best per side |
+| `GET /books` | registered bookmakers (15) |
 | `POST /ingest` | normalized scrape tick → upserts + append-only history |
 | `POST /bets` | place a bet — server-side odds snapshot, idempotent via idempotency_key |
 | `GET /bets` | list bets |
@@ -72,3 +74,13 @@ configured ⇒ 503).
 3. Log into pokerbet.co.za in that browser and open a live basketball event —
    the script polls `http://localhost:8002/bridge/commands` every ~2s, shows a
    status chip, and prompts for the token on first run (cached afterwards).
+
+## Cross-book comparison
+
+Games are matched across books by normalized team pair + sport
+(`v_matched_events` view). `GET /compare?period=ft` returns, per matched game,
+each book's line + over/under odds, with the best odds per side flagged
+(green ★ in the UI matrix on `/bets-ui`, Q1–Q4/FT tabs). Team-ALIAS matching
+("LA Lakers" vs "Lakers") and line-aware best-odds are documented follow-ups.
+The other 14 books need per-book scrapers to fill their matrix columns with
+live data (only PokerBet is BetConstruct so far).

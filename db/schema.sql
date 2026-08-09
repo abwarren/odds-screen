@@ -192,3 +192,44 @@ CREATE TABLE bets (
 );
 CREATE INDEX idx_bets_status   ON bets (status, requested_at);
 CREATE INDEX idx_bets_selection ON bets (selection_id);
+
+-- ----------------------------------------------------------------------------
+-- Cross-book matching (Stage 2 — line comparison across books)
+-- ----------------------------------------------------------------------------
+-- Events are source-scoped (one row per bookmaker). This view groups the same
+-- game across books by normalized team names (lowercased, non-alphanumerics
+-- stripped) + sport, and assigns a canonical match_id (the smallest event id
+-- in the group). Team-ALIAS matching ("LA Lakers" vs "Lakers") is a follow-up.
+CREATE VIEW v_matched_events AS
+WITH keys AS (
+    SELECT e.id AS event_id,
+           c.sport_id,
+           lower(regexp_replace(e.home_team, '[^a-zA-Z0-9]', '', 'g')) AS home_key,
+           lower(regexp_replace(e.away_team, '[^a-zA-Z0-9]', '', 'g')) AS away_key
+    FROM events e
+    JOIN competitions c ON c.id = e.competition_id
+)
+SELECT event_id,
+       min(event_id) OVER (PARTITION BY sport_id, home_key, away_key) AS match_id
+FROM keys;
+
+-- Seed bookmakers from the user's Chrome "Books" bookmark folder
+-- (19 entries: 15 real books + 4 noise — 2 Google-search links, easybet
+-- terms page, sa20 league site — all already covered by real book entries).
+INSERT INTO bookmakers (code, name, platform_type, meta) VALUES
+    ('easybet',      'Easybet',             'unknown',      '{"domain":"easybet.co.za"}'),
+    ('sportingbet',  'Sportingbet',         'unknown',      '{"domain":"sportingbet.co.za"}'),
+    ('pokerbet',     'PokerBet',            'betconstruct', '{"domain":"pokerbet.co.za"}'),
+    ('wsb',          'World Sports Betting','unknown',      '{"domain":"worldsportsbetting.co.za"}'),
+    ('goldrush',     'Goldrush',            'unknown',      '{"domain":"goldrush.co.za"}'),
+    ('sunbet',       'Sunbet',              'unknown',      '{"domain":"sunbet.co.za"}'),
+    ('hollywoodbets','Hollywoodbets',       'unknown',      '{"domain":"hollywoodbets.co.za"}'),
+    ('betway',       'Betway SA',           'unknown',      '{"domain":"new.betway.co.za"}'),
+    ('gbets',        'Gbets',               'unknown',      '{"domain":"gbets.co.za"}'),
+    ('10bet',        '10Bet',               'unknown',      '{"domain":"10bet.co.za"}'),
+    ('playabets',    'Playa Bets',          'unknown',      '{"domain":"playabets.co.za"}'),
+    ('lulabet',      'Lulabet',             'unknown',      '{"domain":"lulabet.co.za"}'),
+    ('yesplay',      'YesPlay',             'unknown',      '{"domain":"yesplay.bet"}'),
+    ('bettabets',    'Bettabets',           'unknown',      '{"domain":"bettabets.co.za"}'),
+    ('supabets',     'Supabets',            'unknown',      '{"domain":"supabets.co.za"}')
+ON CONFLICT (code) DO UPDATE SET name = EXCLUDED.name, meta = EXCLUDED.meta;
