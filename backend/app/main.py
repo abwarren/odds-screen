@@ -8,7 +8,7 @@ from pathlib import Path
 
 import asyncpg
 from fastapi import Depends, FastAPI, Header, HTTPException, Response
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from . import bets, config, ingest, schemas
 
@@ -36,6 +36,12 @@ def require_bet_token(x_bet_token: str | None = Header(default=None)):
 # --------------------------------------------------------------------------- #
 # Read side
 # --------------------------------------------------------------------------- #
+
+@app.get("/", include_in_schema=False)
+async def root():
+    """Landing: send browsers to the control page (wallboard lands here in Phase D)."""
+    return RedirectResponse("/bets-ui", status_code=307)
+
 
 @app.get("/health")
 async def health():
