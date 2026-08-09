@@ -17,9 +17,13 @@ services:
       retries: 20
 
   api:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     environment:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/odds
+      BET_TOKEN: dev-token-change-me   # remote bet placement auth — replace before real use
+      BET_EXPIRY_MINUTES: "15"
     ports:
       - "8002:8000"
     depends_on:

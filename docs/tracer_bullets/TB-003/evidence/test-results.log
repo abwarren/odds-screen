@@ -1,0 +1,27 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.6.0 -- /home/wa/projects/odds-screen/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /home/wa/projects/odds-screen
+configfile: pytest.ini
+plugins: asyncio-1.4.0, anyio-4.14.2
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 16 items
+
+tests/test_bets.py::test_auth_required PASSED                            [  6%]
+tests/test_bets.py::test_place_manual_flow PASSED                        [ 12%]
+tests/test_bets.py::test_cancel_and_invalid_transitions PASSED           [ 18%]
+tests/test_bets.py::test_validation_and_expiry PASSED                    [ 25%]
+tests/test_ingest.py::test_full_lifecycle PASSED                         [ 31%]
+tests/test_ingest.py::test_second_event_is_independent PASSED            [ 37%]
+tests/test_ingest.py::test_live_state_updates_in_place PASSED            [ 43%]
+tests/test_ingest.py::test_rejections PASSED                             [ 50%]
+tests/test_overlay_harness.py::test_find_odds_button_over_2235 PASSED    [ 56%]
+tests/test_overlay_harness.py::test_find_odds_button_under_2225 PASSED   [ 62%]
+tests/test_overlay_harness.py::test_find_quarter_section PASSED          [ 68%]
+tests/test_overlay_harness.py::test_set_stake PASSED                     [ 75%]
+tests/test_overlay_harness.py::test_manual_flow_delivered_then_confirmed PASSED [ 81%]
+tests/test_overlay_harness.py::test_auto_mode_clicks_place_and_confirms PASSED [ 87%]
+tests/test_overlay_harness.py::test_auto_mode_odds_moved_aborts PASSED   [ 93%]
+tests/test_overlay_harness.py::test_event_not_found_fails_cleanly PASSED [100%]
+
+============================== 16 passed in 9.53s ==============================

@@ -42,7 +42,11 @@ append-only trace of every observed change.
 - **Stack (house pattern):** FastAPI + asyncpg + PostgreSQL (Docker Compose,
   mapped ports), vanilla JS/SVG wallboard (no Chart.js), Polling ≥ BetConstruct
   refresh cadence (~20s).
-- **Never auto-place bets.** Screen is read-only display.
+- ~~**Never auto-place bets.** Screen is read-only display.~~ **SUPERSEDED**
+  (2026-08-10, TB-003): the user explicitly requested remote bet placement
+  from the odds screen. New default: slip-populate + **manual confirm** on the
+  book's own site; auto-confirm is an explicit per-bet opt-in (`mode: auto`)
+  that re-verifies slip odds before placing. See the Stage 1 addendum below.
 
 ## Architecture
 
@@ -189,6 +193,45 @@ ToS/IP exposure everywhere, SA included. Mitigation for this build: read-only,
 rate-limited, public-page scraping; no account automation; no bet placement; and
 never claim data provenance we don't have. (This is a display/analytics tool, not
 a resale business — keeps the risk profile low.)
+
+## Stage 1 Addendum — Remote Bet Placement (TB-003)
+
+Added 2026-08-10 as a third vertical slice (TB-003), after the user requested
+placement from the screen — supersedes the original "never auto-place"
+constraint (see Constraints & Decisions).
+
+**What it adds**
+
+- `bets` table (schema.sql, applied live) with the lifecycle
+  `requested → delivered → confirmed | failed` and
+  `requested → cancelled | failed | expired` (stale bets swept lazily on the
+  next bridge poll, `BET_EXPIRY_MINUTES=15` — no cron).
+- Bet API: `POST /bets` (idempotent via `idempotency_key`, odds snapshotted
+  server-side from `v_current_odds` — the client never supplies odds),
+  `GET /bets`, `POST /bets/{id}/cancel`, `GET /bridge/commands?bookmaker=`,
+  `POST /bridge/report`, `GET /bets-ui` (control page). All money routes
+  require `X-Bet-Token` (`BET_TOKEN` env; unset ⇒ 503, default-closed).
+- Browser-side bridge: `bridge/overlay-core.js` (pure-DOM
+  `window.OddsScreenBridge`) + Tampermonkey userscript for pokerbet.co.za
+  (`bridge/tampermonkey/odds-screen-bet-bridge.user.js`), polling
+  `/bridge/commands` every ~2s and driving the user's own logged-in PokerBet
+  session. No credentials in this stack.
+- Control page `web/bets.html`: live board with stake input, bets table with
+  cancel, 5s poll.
+
+**Safety properties (the original constraint, kept in spirit)**
+
+- Default mode is **manual confirm** — the bridge fills the slip and the human
+  clicks Place Bet on PokerBet; the screen never places without the user.
+- Auto mode is an explicit opt-in and re-verifies the slip odds match
+  `odds_at_request` before clicking; moved odds ⇒ `failed`.
+- No credentials in the stack; the bridge works only inside the user's own
+  logged-in session.
+- Default-closed API — token required; no token configured ⇒ 503.
+
+**Impact on the wallboard (Phase D):** the bet control UI (bets.html) will be
+embedded into the wallboard — stake input + Place per selection cell, bets
+table below.
 
 ## Open Questions
 

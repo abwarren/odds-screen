@@ -1,11 +1,11 @@
-"""Ingest contract — normalized payload from any scraper (v1: BetConstruct DOM).
+"""Ingest + bet contracts — normalized payloads at the API boundary.
 
-The contract is the integration point between the scraper layer (Layer 1) and
-the ingest API (Layer 2). It is deliberately flat and bookmaker-agnostic:
-a scraper normalizes whatever DOM it reads into this shape, and the ingest
-service handles upserts, line moves, and append-only dedupe.
+The ingest contract is the integration point between the scraper layer and
+the ingest API; the bet contract is the odds screen's remote-placement API.
+Both are deliberately flat and bookmaker-agnostic.
 """
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -58,3 +58,24 @@ class IngestPayload(BaseModel):
     bookmaker: str  # bookmaker code, e.g. 'pokerbet' (upserted by code)
     event: EventIn
     markets: list[MarketIn] = Field(min_length=1)
+
+
+class BetIn(BaseModel):
+    """One bet request from the odds screen."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    selection_id: int = Field(gt=0)
+    stake: float = Field(gt=0, le=100_000)
+    mode: Literal["manual", "auto"] = "manual"  # manual = user confirms on the book
+    idempotency_key: str = Field(min_length=8, max_length=64)
+
+
+class BridgeReportIn(BaseModel):
+    """Status report from the bridge overlay."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    bet_id: int = Field(gt=0)
+    status: Literal["delivered", "confirmed", "failed"]
+    reason: str | None = Field(default=None, max_length=500)

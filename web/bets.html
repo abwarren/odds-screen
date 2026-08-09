@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Odds Screen — Remote Bet Control</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; font: 14px/1.4 system-ui, sans-serif; background: #0d1117; color: #e6edf3; }
+  header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid #21262d; }
+  header h1 { font-size: 15px; margin: 0; }
+  input[type=text], input[type=number] { background: #161b22; color: #e6edf3; border: 1px solid #30363d; border-radius: 6px; padding: 5px 8px; }
+  button { background: #238636; color: #fff; border: 0; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+  button:disabled { opacity: .4; cursor: default; }
+  button.ghost { background: #30363d; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px; }
+  section { background: #161b22; border: 1px solid #21262d; border-radius: 8px; padding: 12px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: #8b949e; margin: 0 0 8px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #21262d; font-variant-numeric: tabular-nums; }
+  th { color: #8b949e; font-size: 11px; text-transform: uppercase; }
+  .sel { display: flex; gap: 6px; align-items: center; }
+  .stake { width: 70px; }
+  .st-requested { color: #d29922; } .st-delivered { color: #58a6ff; }
+  .st-confirmed { color: #3fb950; } .st-failed, .st-expired { color: #f85149; }
+  .st-cancelled { color: #8b949e; }
+  #toast { position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); background: #161b22; border: 1px solid #30363d; padding: 8px 14px; border-radius: 6px; display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Odds Screen — Bet Control</h1>
+  <input type="text" id="token" placeholder="X-Bet-Token" size="24">
+  <button id="save-token" class="ghost">Save token</button>
+  <span id="api-status" style="color:#8b949e"></span>
+</header>
+<div class="grid">
+  <section>
+    <h2>Live board</h2>
+    <table id="board"><thead><tr><th>Game</th><th>Period</th><th>Market</th><th>Odds</th><th>Stake</th><th></th></tr></thead><tbody></tbody></table>
+  </section>
+  <section>
+    <h2>Bets</h2>
+    <table id="bets"><thead><tr><th>#</th><th>Bet</th><th>Odds</th><th>Stake</th><th>Status</th><th></th></tr></thead><tbody></tbody></table>
+  </section>
+</div>
+<div id="toast"></div>
+<script>
+"use strict";
+const API = ""; // same origin
+const $ = (s) => document.querySelector(s);
+let token = localStorage.getItem("betToken") || "";
+$("#token").value = token;
+$("#save-token").onclick = () => { token = $("#token").value.trim(); localStorage.setItem("betToken", token); toast("token saved"); };
+
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 2500); }
+function headers() { return { "Content-Type": "application/json", "X-Bet-Token": token }; }
+async function api(path, opts) {
+  const r = await fetch(API + path, opts);
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.status);
+  return r.json();
+}
+
+const PERIOD_NAMES = { q1: "Q1", q2: "Q2", q3: "Q3", q4: "Q4", ft: "FT" };
+
+async function loadBoard() {
+  const { events } = await api("/board");
+  const tbody = $("#board tbody");
+  tbody.innerHTML = "";
+  for (const e of events) {
+    const tr = document.createElement("tr");
+    const game = e.home_team + " vs " + e.away_team;
+    tr.innerHTML = `<td>${game}</td><td>${PERIOD_NAMES[e.period] || e.period}</td>` +
+      `<td>${e.side} ${e.line_value}</td><td>${e.odds}</td>` +
+      `<td><input type="number" class="stake" min="1" step="1" placeholder="R"></td>` +
+      `<td><button data-sid="${e.selection_id}" data-txt="${e.side} ${e.line_value} @ ${e.odds}">Place</button></td>`;
+    tr.querySelector("button").onclick = async (ev) => {
+      const btn = ev.target, sid = btn.dataset.sid, stake = tr.querySelector(".stake").value;
+      if (!stake || +stake <= 0) return toast("enter a stake");
+      btn.disabled = true;
+      try {
+        const bet = await api("/bets", { method: "POST", headers: headers(), body: JSON.stringify({
+          selection_id: +sid, stake: +stake, mode: "manual",
+          idempotency_key: crypto.randomUUID(),
+        })});
+        toast(`bet #${bet.id} ${bet.side} ${bet.line_value} @ ${bet.odds_at_request} — ${bet.status}`);
+        loadBets();
+      } catch (err) { toast("place failed: " + err.message); }
+      btn.disabled = false;
+    };
+    tbody.appendChild(tr);
+  }
+}
+
+async function loadBets() {
+  const { bets } = await api("/bets");
+  const tbody = $("#bets tbody");
+  tbody.innerHTML = "";
+  for (const b of bets) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>#${b.id}</td><td>${b.side} ${b.line_value}</td>` +
+      `<td>${b.odds_at_request}</td><td>R${b.stake}</td>` +
+      `<td class="st-${b.status}">${b.status}${b.failed_reason ? " — " + b.failed_reason : ""}</td>` +
+      `<td>${b.status === "requested" ? '<button class="ghost" data-cancel="' + b.id + '">Cancel</button>' : ""}</td>`;
+    const cb = tr.querySelector("[data-cancel]");
+    if (cb) cb.onclick = async () => {
+      try { await api(`/bets/${b.id}/cancel`, { method: "POST", headers: headers() }); loadBets(); }
+      catch (err) { toast("cancel failed: " + err.message); }
+    };
+    tbody.appendChild(tr);
+  }
+}
+
+async function tick() {
+  try {
+    await Promise.all([loadBoard(), loadBets()]);
+    $("#api-status").textContent = "live";
+    $("#api-status").style.color = "#3fb950";
+  } catch (err) {
+    $("#api-status").textContent = "error: " + err.message;
+    $("#api-status").style.color = "#f85149";
+  }
+}
+tick();
+setInterval(tick, 5000);
+</script>
+</body>
+</html>

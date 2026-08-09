@@ -160,3 +160,35 @@ SELECT DISTINCT ON (s.id)
 FROM selections s
 JOIN odds_history oh ON oh.selection_id = s.id
 ORDER BY s.id, oh.captured_at DESC, oh.id DESC;
+
+-- ----------------------------------------------------------------------------
+-- Bets (remote placement from the odds screen)
+-- ----------------------------------------------------------------------------
+-- One row per bet request created from the odds screen. The request is
+-- delivered to the bookmaker's bet slip by the Tampermonkey bridge overlay
+-- (bridge/), which reports status back. Default mode 'manual': the overlay
+-- populates the slip and the user confirms on PokerBet. Mode 'auto' is an
+-- explicit opt-in that lets the overlay click Place Bet after verifying the
+-- slip odds still match odds_at_request.
+--
+-- Lifecycle: requested -> delivered -> confirmed | failed
+--            requested -> cancelled | failed | expired (stale)
+CREATE TABLE bets (
+    id              bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    selection_id    bigint        NOT NULL REFERENCES selections (id),
+    bookmaker_id    bigint        NOT NULL REFERENCES bookmakers (id),
+    side            text          NOT NULL,          -- snapshot for audit (selection may close/move)
+    line_value      numeric(6,1),
+    odds_at_request numeric(6,2)  NOT NULL CHECK (odds_at_request >= 1.01),
+    stake           numeric(10,2) NOT NULL CHECK (stake > 0 AND stake <= 100000),
+    status          text          NOT NULL DEFAULT 'requested',
+                                  -- requested|delivered|confirmed|failed|cancelled|expired
+    mode            text          NOT NULL DEFAULT 'manual',  -- manual|auto
+    idempotency_key text          NOT NULL UNIQUE,
+    requested_at    timestamptz   NOT NULL DEFAULT now(),
+    delivered_at    timestamptz,
+    confirmed_at    timestamptz,
+    failed_reason   text
+);
+CREATE INDEX idx_bets_status   ON bets (status, requested_at);
+CREATE INDEX idx_bets_selection ON bets (selection_id);

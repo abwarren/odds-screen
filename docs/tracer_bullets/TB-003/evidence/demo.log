@@ -1,0 +1,22 @@
+================================================================
+TB-003 DEMO — remote bet placement from the odds screen
+================================================================
+
+seed event via /ingest -> 201
+board ft over: selection_id=11 line=223.5 odds=1.8
+
+POST /bets -> 201 {"id": 1, "selection_id": 11, "bookmaker_id": 1, "side": "over", "line_value": 223.5, "odds_at_request": 1.8, "stake": 50.0, "status": "requested", "mode": "manual", "idempotency_key": "demo-d99b59ebf2f3", "requested_at": "2026-08-09T22:37:09.564337+00:00", "delivered_at": null, "confirmed_at": null, "failed_reason": null}
+
+bridge command -> {"bet_id": 1, "side": "over", "line_value": 223.5, "odds_at_request": 1.8, "stake": 50.0, "mode": "manual", "external_ref": "nba-2026-08-09-lakers-celtics", "home_team": "Lakers", "away_team": "Celtics", "period": "ft", "market_type": "total_points"}
+(the Tampermonkey overlay on pokerbet.co.za pulls this, navigates to the
+ game, fills the slip with Over 222.5 @ 1.85, sets stake R50, then:
+ - manual mode: user clicks Place Bet on PokerBet
+ - auto mode:   overlay verifies slip odds then clicks Place Bet itself
+
+overlay reports delivered -> 200 {'id': 1, 'status': 'delivered', 'delivered_at': '2026-08-09T22:37:09.582255+00:00', 'confirmed_at': None, 'failed_reason': None}
+pending commands now: 0 (bet no longer queued)
+overlay reports confirmed -> 200 {'id': 1, 'status': 'confirmed', 'delivered_at': '2026-08-09T22:37:09.582255+00:00', 'confirmed_at': '2026-08-09T22:37:09.596355+00:00', 'failed_reason': None}
+
+GET /bets -> #1 over 223.5 @ 1.8 stake R50.0 status=confirmed
+
+bets table rows from this demo: 1
