@@ -103,7 +103,14 @@ async function loadBoard() {
 }
 
 async function loadBets() {
-  const { bets } = await api("/bets");
+  let bets = [];
+  try {
+    bets = (await api("/bets")).bets;
+  } catch (err) {
+    // no token / not configured — show the board anyway, hint inline
+    $("#bets tbody").innerHTML = `<tr><td colspan="7" style="color:#8b949e">enter X-Bet-Token to see bets</td></tr>`;
+    return;
+  }
   const tbody = $("#bets tbody");
   tbody.innerHTML = "";
   for (const b of bets) {
@@ -155,7 +162,7 @@ async function loadCompare() {
     const cell = (code) => {
       const bk = m.books[code];
       if (!bk) return "<td style='color:#484f58'>—</td>";
-      const sides = Object.keys(bk).filter(s => bk[s]);
+      const sides = ["over", "under", "home", "away", "draw"].filter(s => bk[s]);
       if (!sides.length) return "<td style='color:#484f58'>—</td>";
       const line = (s) => bk[s].line != null ? ` ${bk[s].line}` : "";
       const row = (s) => {
