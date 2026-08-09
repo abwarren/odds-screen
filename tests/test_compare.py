@@ -108,7 +108,19 @@ def test_compare_period_filter_and_unmatched(client):
 
 
 def test_compare_moneyline(client):
-    # moneyline on Heat/Nuggets (seeded): home/away sides, no line, best per side
+    # moneyline on Heat/Nuggets: home/away sides, no line, best per side
+    ingest(client, "pokerbet", f"cmp-{uuid.uuid4().hex[:8]}", "Heat", "Nuggets",
+           [{"period": "ft", "market_type": "moneyline", "status": "open",
+             "selections": [
+                 {"side": "home", "line_value": None, "odds": 1.95},
+                 {"side": "away", "line_value": None, "odds": 1.85},
+             ]}])
+    ingest(client, "hollywoodbets", f"cmp-{uuid.uuid4().hex[:8]}", "Heat", "Nuggets",
+           [{"period": "ft", "market_type": "moneyline", "status": "open",
+             "selections": [
+                 {"side": "home", "line_value": None, "odds": 1.80},
+                 {"side": "away", "line_value": None, "odds": 2.00},
+             ]}])
     matches = client.get(f"{API}/compare?period=ft&market_type=moneyline").json()["matches"]
     heat = [m for m in matches if m["home_team"] == "Heat" and m["away_team"] == "Nuggets"]
     assert len(heat) == 1
