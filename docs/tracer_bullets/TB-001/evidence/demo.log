@@ -1,0 +1,94 @@
+================================================================
+TB-001 DEMO — live basketball totals ingest path
+================================================================
+
+TICK 1 — fresh event, 5 markets, 10 selections
+  POST /ingest -> 201 {"event_id": 1, "markets": 5, "selections": 10, "odds_appended": 10, "lines_moved": 0, "unchanged": 0}
+
+=== /board — after tick 1 ===
+  Lakers 72 - 68 Celtics  | q3 420s
+   q1: over 222.5 @ 1.85  under 222.5 @ 1.9
+   q2: over 222.5 @ 1.85  under 222.5 @ 1.9
+   q3: over 222.5 @ 1.85  under 222.5 @ 1.9
+   q4: over 222.5 @ 1.85  under 222.5 @ 1.9
+   ft: over 222.5 @ 1.85  under 222.5 @ 1.9
+
+TICK 2 — ft OVER odds 1.85 -> 1.75
+  POST /ingest -> 201 {"event_id": 1, "markets": 5, "selections": 0, "odds_appended": 1, "lines_moved": 0, "unchanged": 9}
+
+=== /board — after tick 2 ===
+  Lakers 72 - 68 Celtics  | q3 420s
+   q1: over 222.5 @ 1.85  under 222.5 @ 1.9
+   q2: over 222.5 @ 1.85  under 222.5 @ 1.9
+   q3: over 222.5 @ 1.85  under 222.5 @ 1.9
+   q4: over 222.5 @ 1.85  under 222.5 @ 1.9
+   ft: over 222.5 @ 1.75  under 222.5 @ 1.9
+
+TICK 3 — ft LINE MOVE 222.5 -> 223.5 (both sides)
+  POST /ingest -> 201 {"event_id": 1, "markets": 5, "selections": 2, "odds_appended": 2, "lines_moved": 2, "unchanged": 8}
+
+=== /board — after tick 3 ===
+  Lakers 72 - 68 Celtics  | q3 420s
+   q1: over 222.5 @ 1.85  under 222.5 @ 1.9
+   q2: over 222.5 @ 1.85  under 222.5 @ 1.9
+   q3: over 222.5 @ 1.85  under 222.5 @ 1.9
+   q4: over 222.5 @ 1.85  under 222.5 @ 1.9
+   ft: over 223.5 @ 1.8  under 223.5 @ 1.85
+
+TICK 4 — exact duplicate of tick 3 (dedupe check)
+  POST /ingest -> 201 {"event_id": 1, "markets": 5, "selections": 0, "odds_appended": 0, "lines_moved": 0, "unchanged": 10}
+
+=== Postgres state ===
+
+  events (1 rows)
+    {'id': 1, 'home_team': 'Lakers', 'away_team': 'Celtics', 'status': 'live', 'period_code': 'q3', 'home_score': 72, 'away_score': 68, 'last_seen_at': datetime.datetime(2026, 8, 9, 22, 17, 28, 836458, tzinfo=datetime.timezone.utc)}
+
+  markets (5 rows)
+    {'id': 1, 'event_id': 1, 'period_id': 1, 'market_type_id': 1, 'status': 'open'}
+    {'id': 2, 'event_id': 1, 'period_id': 2, 'market_type_id': 1, 'status': 'open'}
+    {'id': 3, 'event_id': 1, 'period_id': 3, 'market_type_id': 1, 'status': 'open'}
+    {'id': 4, 'event_id': 1, 'period_id': 4, 'market_type_id': 1, 'status': 'open'}
+    {'id': 5, 'event_id': 1, 'period_id': 7, 'market_type_id': 1, 'status': 'open'}
+
+  selections (12 rows)
+    {'id': 1, 'market_id': 1, 'side': 'over', 'line_value': Decimal('222.5'), 'is_open': True}
+    {'id': 2, 'market_id': 1, 'side': 'under', 'line_value': Decimal('222.5'), 'is_open': True}
+    {'id': 3, 'market_id': 2, 'side': 'over', 'line_value': Decimal('222.5'), 'is_open': True}
+    {'id': 4, 'market_id': 2, 'side': 'under', 'line_value': Decimal('222.5'), 'is_open': True}
+    {'id': 5, 'market_id': 3, 'side': 'over', 'line_value': Decimal('222.5'), 'is_open': True}
+    {'id': 6, 'market_id': 3, 'side': 'under', 'line_value': Decimal('222.5'), 'is_open': True}
+    {'id': 7, 'market_id': 4, 'side': 'over', 'line_value': Decimal('222.5'), 'is_open': True}
+    {'id': 8, 'market_id': 4, 'side': 'under', 'line_value': Decimal('222.5'), 'is_open': True}
+    {'id': 9, 'market_id': 5, 'side': 'over', 'line_value': Decimal('222.5'), 'is_open': False}
+    {'id': 10, 'market_id': 5, 'side': 'under', 'line_value': Decimal('222.5'), 'is_open': False}
+    {'id': 11, 'market_id': 5, 'side': 'over', 'line_value': Decimal('223.5'), 'is_open': True}
+    {'id': 12, 'market_id': 5, 'side': 'under', 'line_value': Decimal('223.5'), 'is_open': True}
+
+  odds_history (13 rows)
+    {'id': 1, 'selection_id': 1, 'odds': Decimal('1.85'), 'implied_prob': Decimal('0.5405'), 'source': 'scrape'}
+    {'id': 2, 'selection_id': 2, 'odds': Decimal('1.90'), 'implied_prob': Decimal('0.5263'), 'source': 'scrape'}
+    {'id': 3, 'selection_id': 3, 'odds': Decimal('1.85'), 'implied_prob': Decimal('0.5405'), 'source': 'scrape'}
+    {'id': 4, 'selection_id': 4, 'odds': Decimal('1.90'), 'implied_prob': Decimal('0.5263'), 'source': 'scrape'}
+    {'id': 5, 'selection_id': 5, 'odds': Decimal('1.85'), 'implied_prob': Decimal('0.5405'), 'source': 'scrape'}
+    {'id': 6, 'selection_id': 6, 'odds': Decimal('1.90'), 'implied_prob': Decimal('0.5263'), 'source': 'scrape'}
+    {'id': 7, 'selection_id': 7, 'odds': Decimal('1.85'), 'implied_prob': Decimal('0.5405'), 'source': 'scrape'}
+    {'id': 8, 'selection_id': 8, 'odds': Decimal('1.90'), 'implied_prob': Decimal('0.5263'), 'source': 'scrape'}
+    {'id': 9, 'selection_id': 9, 'odds': Decimal('1.85'), 'implied_prob': Decimal('0.5405'), 'source': 'scrape'}
+    {'id': 10, 'selection_id': 10, 'odds': Decimal('1.90'), 'implied_prob': Decimal('0.5263'), 'source': 'scrape'}
+    {'id': 11, 'selection_id': 9, 'odds': Decimal('1.75'), 'implied_prob': Decimal('0.5714'), 'source': 'scrape'}
+    {'id': 12, 'selection_id': 11, 'odds': Decimal('1.80'), 'implied_prob': Decimal('0.5556'), 'source': 'scrape'}
+    {'id': 13, 'selection_id': 12, 'odds': Decimal('1.85'), 'implied_prob': Decimal('0.5405'), 'source': 'scrape'}
+
+  v_current_odds (12 rows)
+    {'selection_id': 1, 'side': 'over', 'line_value': Decimal('222.5'), 'odds': Decimal('1.85'), 'captured_at': datetime.datetime(2026, 8, 9, 22, 17, 28, 798956, tzinfo=datetime.timezone.utc)}
+    {'selection_id': 2, 'side': 'under', 'line_value': Decimal('222.5'), 'odds': Decimal('1.90'), 'captured_at': datetime.datetime(2026, 8, 9, 22, 17, 28, 798956, tzinfo=datetime.timezone.utc)}
+    {'selection_id': 3, 'side': 'over', 'line_value': Decimal('222.5'), 'odds': Decimal('1.85'), 'captured_at': datetime.datetime(2026, 8, 9, 22, 17, 28, 798956, tzinfo=datetime.timezone.utc)}
+    {'selection_id': 4, 'side': 'under', 'line_value': Decimal('222.5'), 'odds': Decimal('1.90'), 'captured_at': datetime.datetime(2026, 8, 9, 22, 17, 28, 798956, tzinfo=datetime.timezone.utc)}
+    {'selection_id': 5, 'side': 'over', 'line_value': Decimal('222.5'), 'odds': Decimal('1.85'), 'captured_at': datetime.datetime(2026, 8, 9, 22, 17, 28, 798956, tzinfo=datetime.timezone.utc)}
+    {'selection_id': 6, 'side': 'under', 'line_value': Decimal('222.5'), 'odds': Decimal('1.90'), 'captured_at': datetime.datetime(2026, 8, 9, 22, 17, 28, 798956, tzinfo=datetime.timezone.utc)}
+    {'selection_id': 7, 'side': 'over', 'line_value': Decimal('222.5'), 'odds': Decimal('1.85'), 'captured_at': datetime.datetime(2026, 8, 9, 22, 17, 28, 798956, tzinfo=datetime.timezone.utc)}
+    {'selection_id': 8, 'side': 'under', 'line_value': Decimal('222.5'), 'odds': Decimal('1.90'), 'captured_at': datetime.datetime(2026, 8, 9, 22, 17, 28, 798956, tzinfo=datetime.timezone.utc)}
+    {'selection_id': 9, 'side': 'over', 'line_value': Decimal('222.5'), 'odds': Decimal('1.75'), 'captured_at': datetime.datetime(2026, 8, 9, 22, 17, 28, 817318, tzinfo=datetime.timezone.utc)}
+    {'selection_id': 10, 'side': 'under', 'line_value': Decimal('222.5'), 'odds': Decimal('1.90'), 'captured_at': datetime.datetime(2026, 8, 9, 22, 17, 28, 798956, tzinfo=datetime.timezone.utc)}
+    {'selection_id': 11, 'side': 'over', 'line_value': Decimal('223.5'), 'odds': Decimal('1.80'), 'captured_at': datetime.datetime(2026, 8, 9, 22, 17, 28, 824461, tzinfo=datetime.timezone.utc)}
+    {'selection_id': 12, 'side': 'under', 'line_value': Decimal('223.5'), 'odds': Decimal('1.85'), 'captured_at': datetime.datetime(2026, 8, 9, 22, 17, 28, 824461, tzinfo=datetime.timezone.utc)}

@@ -5,9 +5,9 @@ Phase A skeleton: /health + /board stub wired to the schema.
 from contextlib import asynccontextmanager
 
 import asyncpg
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
-from . import config
+from . import config, ingest, schemas
 
 
 @asynccontextmanager
@@ -27,6 +27,15 @@ async def health():
     return {"status": "ok"}
 
 
+@app.post("/ingest", status_code=201)
+async def ingest_tick(payload: schemas.IngestPayload):
+    """Accept one normalized scrape tick; upsert + append-only dedupe."""
+    try:
+        return await ingest.apply(app.state.pool, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
 @app.get("/board")
 async def board():
     """Live events with current O/U selections (Phase D wallboard read model)."""
@@ -34,6 +43,7 @@ async def board():
         rows = await conn.fetch(
             """
             SELECT e.id            AS event_id,
+                   e.external_ref,
                    e.home_team, e.away_team,
                    e.home_score, e.away_score,
                    e.period_code, e.clock_seconds,
@@ -46,6 +56,7 @@ async def board():
             JOIN selections s  ON s.market_id = m.id
             JOIN v_current_odds v ON v.selection_id = s.id
             WHERE e.status = 'live'
+              AND s.is_open = true
             ORDER BY e.id, p.ordinal, s.side
             """
         )
