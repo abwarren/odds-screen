@@ -86,6 +86,12 @@ async def books():
     return {"books": await compare.books(app.state.pool)}
 
 
+@app.get("/markets")
+async def markets():
+    """Market types with live data (powers the compare market tabs)."""
+    return {"markets": await compare.markets(app.state.pool)}
+
+
 @app.get("/compare")
 async def compare_board(period: str = "ft", market_type: str = "total_points"):
     """Same market across books: per matched game, per book line + odds, best per side."""

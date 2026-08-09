@@ -44,13 +44,14 @@
   </section>
 </div>
 <section id="compare-sec" style="margin:16px">
-  <h2>Compare across books — <span id="cmp-period-label">FT</span> totals
+  <h2>Compare across books — <span id="cmp-period-label">FT</span> <span id="cmp-market-label">totals</span>
     <span style="float:right" id="cmp-tabs">
       <button class="ghost" data-p="q1">Q1</button><button class="ghost" data-p="q2">Q2</button>
       <button class="ghost" data-p="q3">Q3</button><button class="ghost" data-p="q4">Q4</button>
       <button class="ghost" data-p="ft">FT</button>
     </span>
   </h2>
+  <div id="market-tabs" style="margin-bottom:10px"></div>
   <div style="overflow-x:auto"><table id="cmp"><thead></thead><tbody></tbody></table></div>
 </section>
 <div id="toast"></div>
@@ -120,12 +121,24 @@ async function loadBets() {
   }
 }
 
-let cmpPeriod = "ft";
+let cmpPeriod = "ft", cmpMarket = "total_points";
 const PERIOD_FULL = { q1: "Q1", q2: "Q2", q3: "Q3", q4: "Q4", ft: "FT" };
+const MARKET_LABEL = { total_points: "totals", moneyline: "moneyline", spread: "spread" };
+const SIDE_LABEL = { over: "O", under: "U", home: "H", away: "A", draw: "D" };
+
+async function loadMarketTabs() {
+  const { markets } = await api("/markets");
+  const box = $("#market-tabs");
+  if (!markets.length) { box.innerHTML = ""; return; }
+  box.innerHTML = markets.map(m =>
+    `<button class="ghost" data-m="${m.code}"${m.code === cmpMarket ? ' style="outline:2px solid #3fb950"' : ""}>${m.name}</button>`
+  ).join(" ");
+  box.querySelectorAll("button").forEach(b => b.onclick = () => { cmpMarket = b.dataset.m; loadCompare(); loadMarketTabs(); });
+}
 
 async function loadCompare() {
   const [cmp, books] = await Promise.all([
-    api(`/compare?period=${cmpPeriod}`),
+    api(`/compare?period=${cmpPeriod}&market_type=${cmpMarket}`),
     api("/books"),
   ]);
   // header: Game | one column per book (only books present in any match)
@@ -133,6 +146,7 @@ async function loadCompare() {
   for (const m of cmp.matches) for (const c of Object.keys(m.books)) if (!codes.includes(c)) codes.push(c);
   const thead = $("#cmp thead"), tbody = $("#cmp tbody");
   $("#cmp-period-label").textContent = PERIOD_FULL[cmpPeriod];
+  $("#cmp-market-label").textContent = MARKET_LABEL[cmpMarket] || cmpMarket;
   thead.innerHTML = "<tr><th>Game</th>" + codes.map(c => `<th>${c}</th>`).join("") + "</tr>";
   tbody.innerHTML = "";
   for (const m of cmp.matches) {
@@ -140,13 +154,15 @@ async function loadCompare() {
     const b = m.best;
     const cell = (code) => {
       const bk = m.books[code];
-      if (!bk || (!bk.over && !bk.under)) return "<td style='color:#484f58'>—</td>";
-      const side = (s) => {
-        if (!bk[s]) return "";
+      if (!bk) return "<td style='color:#484f58'>—</td>";
+      const sides = Object.keys(bk).filter(s => bk[s]);
+      if (!sides.length) return "<td style='color:#484f58'>—</td>";
+      const line = (s) => bk[s].line != null ? ` ${bk[s].line}` : "";
+      const row = (s) => {
         const isBest = b[s] && b[s].book === code;
-        return `<div${isBest ? ' style="color:#3fb950;font-weight:700"' : ""}>${s} ${bk[s].line} @ ${bk[s].odds}${isBest ? " ★" : ""}</div>`;
+        return `<div${isBest ? ' style="color:#3fb950;font-weight:700"' : ""}>${SIDE_LABEL[s] || s}${line(s)} @ ${bk[s].odds}${isBest ? " ★" : ""}</div>`;
       };
-      return `<td>${side("over")}${side("under")}</td>`;
+      return `<td>${sides.map(row).join("")}</td>`;
     };
     tr.innerHTML = `<td><b>${m.home_team}</b> vs <b>${m.away_team}</b></td>` + codes.map(cell).join("");
     tbody.appendChild(tr);
@@ -161,6 +177,7 @@ function tick() {
 $("#cmp-tabs").querySelectorAll("button").forEach(btn => {
   btn.onclick = () => { cmpPeriod = btn.dataset.p; loadCompare(); };
 });
+loadMarketTabs();
 tick();
 setInterval(tick, 5000);
 </script>

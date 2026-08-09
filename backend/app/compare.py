@@ -9,6 +9,22 @@ consensus lines are Stage 4).
 from asyncpg import Pool
 
 
+async def markets(pool: Pool) -> list[dict]:
+    """Market types that actually have live data (for the UI market tabs)."""
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT DISTINCT mt.code, mt.name
+            FROM markets mk
+            JOIN market_types mt ON mt.id = mk.market_type_id
+            JOIN events e ON e.id = mk.event_id
+            WHERE e.status = 'live'
+            ORDER BY mt.code
+            """
+        )
+        return [dict(r) for r in rows]
+
+
 async def compare(pool: Pool, period: str = "ft", market_type: str = "total_points") -> list[dict]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(
@@ -41,23 +57,24 @@ async def compare(pool: Pool, period: str = "ft", market_type: str = "total_poin
             "books": {},
         })
         book = m["books"].setdefault(r["book"], {
-            "book_name": r["book_name"], "over": None, "under": None,
+            "book_name": r["book_name"],
+            "home": None, "draw": None, "away": None, "over": None, "under": None,
         })
         book[r["side"]] = {
             "line": float(r["line_value"]) if r["line_value"] is not None else None,
             "odds": float(r["odds"]),
         }
 
+    # best odds per SIDE present in this match (home/away/draw for moneylines,
+    # over/under for totals) — max decimal odds among books
+    SIDES = ("home", "draw", "away", "over", "under")
     for m in matches.values():
-        best = {}
-        for side in ("over", "under"):
-            cands = [(code, b[side]) for code, b in m["books"].items() if b[side]]
-            if cands:
-                code, odds = max(cands, key=lambda c: c[1]["odds"])
-                best[side] = {"book": code, "odds": odds["odds"], "line": odds["line"]}
-            else:
-                best[side] = None
-        m["best"] = best
+        present = {s for s in SIDES if any(book[s] for book in m["books"].values())}
+        m["best"] = {}
+        for side in present:
+            code, odds = max(((code, book[side]) for code, book in m["books"].items() if book[side]),
+                             key=lambda c: c[1]["odds"])
+            m["best"][side] = {"book": code, "odds": odds["odds"], "line": odds["line"]}
 
     return sorted(matches.values(), key=lambda m: m["match_id"])
 

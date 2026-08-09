@@ -107,6 +107,22 @@ def test_compare_period_filter_and_unmatched(client):
     assert len(knicks) == 1 and set(knicks[0]["books"]) == {"pokerbet"}
 
 
+def test_compare_moneyline(client):
+    # moneyline on Heat/Nuggets (seeded): home/away sides, no line, best per side
+    matches = client.get(f"{API}/compare?period=ft&market_type=moneyline").json()["matches"]
+    heat = [m for m in matches if m["home_team"] == "Heat" and m["away_team"] == "Nuggets"]
+    assert len(heat) == 1
+    m = heat[0]
+    assert set(m["books"]) == {"pokerbet", "hollywoodbets"}
+    assert m["books"]["pokerbet"]["home"] == {"line": None, "odds": 1.95}
+    assert m["books"]["pokerbet"]["away"] == {"line": None, "odds": 1.85}
+    assert m["books"]["hollywoodbets"]["home"] == {"line": None, "odds": 1.80}
+    assert m["books"]["hollywoodbets"]["away"] == {"line": None, "odds": 2.00}
+    assert m["best"]["home"] == {"book": "pokerbet", "odds": 1.95, "line": None}
+    assert m["best"]["away"] == {"book": "hollywoodbets", "odds": 2.00, "line": None}
+    assert set(m["best"]) == {"home", "away"}  # no over/under keys for a moneyline
+
+
 def test_compare_empty(client):
     # no data for the spread market type -> no matches, no error
     matches = client.get(f"{API}/compare?period=ft&market_type=spread").json()["matches"]
