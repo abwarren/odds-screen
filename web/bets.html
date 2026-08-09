@@ -181,6 +181,18 @@ function tick() {
     .then(() => { $("#api-status").textContent = "live"; $("#api-status").style.color = "#3fb950"; })
     .catch((err) => { $("#api-status").textContent = "error: " + err.message; $("#api-status").style.color = "#f85149"; });
 }
+// realtime: SSE push on ingest (slow-moving markets update instantly);
+// 5s poll stays as a reconnect fallback when the stream drops.
+let es;
+function connectStream() {
+  if (es) es.close();
+  es = new EventSource("/stream");
+  es.onmessage = (ev) => { if (ev.data) tick(); };           // data events
+  es.addEventListener("ingest", () => tick());
+  es.addEventListener("snapshot", () => tick());
+  es.onerror = () => { es.close(); setTimeout(connectStream, 5000); }; // auto-reconnect
+}
+connectStream();
 $("#cmp-tabs").querySelectorAll("button").forEach(btn => {
   btn.onclick = () => { cmpPeriod = btn.dataset.p; loadCompare(); };
 });

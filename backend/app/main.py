@@ -8,9 +8,9 @@ from pathlib import Path
 
 import asyncpg
 from fastapi import Depends, FastAPI, Header, HTTPException, Response
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 
-from . import bets, compare, config, ingest, schemas
+from . import bets, compare, config, ingest, realtime, schemas
 
 
 @asynccontextmanager
@@ -80,6 +80,16 @@ async def board():
     return {"events": [dict(r) for r in rows]}
 
 
+@app.get("/stream")
+async def stream():
+    """SSE: live push of board/compare changes (EventSource)."""
+    return StreamingResponse(
+        realtime.stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @app.get("/books")
 async def books():
     """Registered bookmakers (read side — powers the compare matrix header)."""
@@ -106,9 +116,11 @@ async def compare_board(period: str = "ft", market_type: str = "total_points"):
 async def ingest_tick(payload: schemas.IngestPayload):
     """Accept one normalized scrape tick; upsert + append-only dedupe."""
     try:
-        return await ingest.apply(app.state.pool, payload)
+        result = await ingest.apply(app.state.pool, payload)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    realtime.notify("ingest")  # push to connected wallboards
+    return result
 
 
 # --------------------------------------------------------------------------- #

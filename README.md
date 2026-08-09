@@ -5,8 +5,9 @@ Points Over/Under wallboard (Q1–Q4 + Full Game), with append-only odds history
 for later line-movement / CLV / +EV analysis, and remote bet placement from
 the screen into your own logged-in PokerBet session.
 
-**Status:** TB-001 (ingest) + TB-003 (remote bet placement) + TB-004 (multi-book
-comparison) complete and QA-approved. Next: TB-002 BetConstruct scraper (Phase C).
+**Status:** TB-001 (ingest), TB-003 (remote bets), TB-004 (multi-book
+comparison), TB-005 (realtime SSE) complete and QA-approved. Next: TB-002
+BetConstruct scraper.
 
 - Plan: `docs/plans/2026-08-09-odds-screen-v1.md`
 - Schema: `db/schema.sql`
@@ -33,6 +34,7 @@ curl localhost:8002/health            # {"status":"ok"}
 |---|---|
 | `GET /health` | liveness (SELECT 1) |
 | `GET /board` | live events × open O/U selections (one query; includes selection_id, bookmaker) |
+| `GET /stream` | SSE — live push of board/compare changes (EventSource) |
 | `GET /compare?period=ft` | same market across books: per matched game, per book line + odds, best per side |
 | `GET /books` | registered bookmakers (15) |
 | `POST /ingest` | normalized scrape tick → upserts + append-only history |

@@ -88,8 +88,8 @@ def test_compare_groups_same_game_across_books(client):
 
 
 def test_compare_period_filter_and_unmatched(client):
-    # Heat/Nuggets already exist (prior test); add q1 data only for betway
-    ingest(client, "betway", f"cmp-{uuid.uuid4().hex[:8]}", "Heat", "Nuggets",
+    # unique game (Bulls/Pacers) so no other test's data can leak in
+    ingest(client, "betway", f"cmp-{uuid.uuid4().hex[:8]}", "Bulls", "Pacers",
            [{"period": "q1", "market_type": "total_points", "status": "open",
              **ou(52.5, 1.75, 2.05)}])
     # unrelated game -> its own match
@@ -98,9 +98,9 @@ def test_compare_period_filter_and_unmatched(client):
              **ou(210.5, 1.90, 1.80)}])
 
     matches = client.get(f"{API}/compare?period=q1").json()["matches"]
-    heat = [m for m in matches if m["home_team"] == "Heat"][0]
-    assert set(heat["books"]) == {"betway"}  # only the book with q1 data
-    assert heat["books"]["betway"]["over"] == {"line": 52.5, "odds": 1.75}
+    bulls = [m for m in matches if m["home_team"] == "Bulls"][0]
+    assert set(bulls["books"]) == {"betway"}  # only the book with q1 data
+    assert bulls["books"]["betway"]["over"] == {"line": 52.5, "odds": 1.75}
 
     matches = client.get(f"{API}/compare?period=ft").json()["matches"]
     knicks = [m for m in matches if m["home_team"] == "Knicks"]
