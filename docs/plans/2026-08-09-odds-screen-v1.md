@@ -192,7 +192,12 @@ a resale business — keeps the risk profile low.)
 
 ## Open Questions
 
-1. **Which bookmakers beyond PokerBet?** (Schema is ready for them; Stage 2 work = per-book scrapers.) Hollywoodbets, Betway SA, Sportingbet, Supabets — which are targets, and do you have accounts/access for live basketball?
+1. **Which bookmakers beyond PokerBet?** RESOLVED — 15 SA books bookmarked in Chrome
+   folder "Books" (extracted 2026-08-09): Easybet, Sportingbet, PokerBet, World Sports
+   Betting, Goldrush (bet.co.za), Sunbet, Hollywoodbets, Betway SA (new.betway.co.za),
+   Gbets, 10Bet, Playa Bets, Lulabet, YesPlay, Bettabets, Supabets. All are Stage 2
+   targets (per-book scrapers). Credentials live in the user's password manager —
+   the user adds them manually on this machine, never via the agent.
 2. **Scraper hosting** — same Docker Compose as the API, or a separate box/service (cf. blm-scraper.service pattern)?
 3. **Wallboard layout** — single screen grid of ALL live games, or per-game drill-down? (Default: grid of live games, click → game detail.)
 4. **Historical depth** — keep every odds change forever, or start pruning pre-rollout data once volume grows?
